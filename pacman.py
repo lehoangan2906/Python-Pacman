@@ -25,6 +25,8 @@ player_x = 450
 player_y = 663
 direction = 0  # Initial direction of the player - right
 counter = 0  # for cycling through images to create the animations
+player_speed = 2
+direction_command = 0
 
 # ---------------------------------------------------------------------------------------
 
@@ -97,6 +99,7 @@ def check_position(centerx, centery):
     num1 = (HEIGHT - 50) // 32
     num2 = (WIDTH // 30)
     num3 = 15
+
     # check collisions based on center x and center y of player +/- fudge number
     if centerx // 30 < 29:
         if direction == 0:
@@ -138,8 +141,21 @@ def check_position(centerx, centery):
         turns[0] = True
         turns[1] = True
 
+    # Returns whether or not we're allowed to turn
     return turns
 
+def move_player(player_x, player_y):
+    # r, l, u, d
+    if direction == 0 and turns_allowed[0]: # move right
+        player_x += player_speed
+    elif direction == 1 and turns_allowed[1]: # move left
+        player_x -= player_speed
+    if direction == 2 and turns_allowed[2]: # move up
+        player_y -= player_speed
+    elif direction == 3 and turns_allowed[3]: # move down
+        player_y += player_speed
+
+    return player_x, player_y
 
 # ---------------------------------------------------------------------------------------
 
@@ -165,6 +181,7 @@ while run:
     center_x = player_x + 23
     center_y = player_y + 24
     turns_allowed = check_position(center_x, center_y)  # check if the player hit obstacles
+    player_x, player_y = move_player(player_x, player_y) # move the player as the arrow keys pressed
 
     # Check for conditions
     for event in pygame.event.get():
@@ -172,13 +189,37 @@ while run:
             run = False
         if event.type == pygame.KEYDOWN:    # detect key presses
             if event.key == pygame.K_RIGHT: # right arrow key
-                direction = 0
+                direction_command = 0
             if event.key == pygame.K_LEFT:
-                direction = 1
+                direction_command = 1
             if event.key == pygame.K_UP:
-                direction = 2
+                direction_command = 2
             if event.key == pygame.K_DOWN:
-                direction = 3
+                direction_command = 3
+        if event.type == pygame.KEYUP:    # detect key releases
+            if event.key == pygame.K_RIGHT and direction_command == 0:
+                direction_command = direction
+            if event.key == pygame.K_LEFT and direction_command == 1:
+                direction_command = direction
+            if event.key == pygame.K_UP and direction_command == 2:
+                direction_command = direction
+            if event.key == pygame.K_DOWN and direction_command == 3:
+                direction_command = direction
+
+    if direction_command == 0 and turns_allowed[0]:
+        direction = 0
+    if direction_command == 1 and turns_allowed[1]:
+        direction = 1
+    if direction_command == 2 and turns_allowed[2]:
+        direction = 2
+    if direction_command == 3 and turns_allowed[3]:
+        direction = 3
+
+    # "transport" the player to the opposite side of the board if it goes beyond the borders
+    if player_x > 900:
+        player_x = -47
+    elif player_x < -50:
+        player_x = 897
 
     pygame.display.flip()   # Let everything be drawn on the screen every iteration
 
