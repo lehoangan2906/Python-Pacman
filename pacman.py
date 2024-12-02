@@ -5,35 +5,56 @@ from board import boards
 # Initialize pygame environment
 pygame.init()
 
+# ------------------------------------ Parameters Definition ------------------------------------
 
-# Define the pygame parameters 
+# Define the pygame's parameters 
 fps = 60
 WIDTH = 900
 HEIGHT = 950
 PI = math.pi
 level = boards                                      # import the lists of level (layout components) - the level is constructed by multiple tiles
+moving = False
 flicker = False                                     # flicker control for the BIG white dots
+startup_counter = 0
 timer = pygame.time.Clock()                         # Control the speed at which the game run
 font = pygame.font.Font("freesansbold.ttf", 20)
 screen = pygame.display.set_mode([WIDTH, HEIGHT])   # setting pygame display dimensions
 
 
 # Define the player's parameters
+lives = 3
 score = 0
 counter = 0             # for cycling through images to create the animations
 direction = 0           # Initial direction of the player - right
 player_x = 450
 player_y = 663
 player_speed = 2
+power_up = False
+power_counter = 0
 player_images = []
 direction_command = 0
+eaten_ghosts = [False, False, False, False]
 for i in range(1, 5):
     player_images.append(pygame.transform.scale(pygame.image.load(f'assets/player_images/{i}.png'), (45, 45)))  # animating the player biting using multiple images
 
 
-# ---------------------------------------------------------------------------------------
+# ------------------------------------ Helper Functions ------------------------------------
 
-# Draw the layout of the game
+# Draw the miscellaneous informations 
+def draw_misc():
+    # Display the score
+    score_text = font.render(f'Score: {score}', True, 'white')
+    screen.blit(score_text, (10, 920))
+
+    # Draw a blue dot to indicate the power up state
+    if power_up:
+        pygame.draw.circle(screen, 'blue', (140, 930), 15)
+
+    # Draw the lives counter
+    for i in range(lives):
+        screen.blit(pygame.transform.scale(player_images[0], (30, 30)), (650 + i * 40, 915))
+
+# Draw the layout of the board
 def draw_board():
     num1 = ((HEIGHT - 50) // 32)    # How tall each tile should be
     num2 = (WIDTH // 30)            # How wide each tile should be
@@ -84,7 +105,8 @@ def draw_board():
             if level[i][j] == 9:
                 pygame.draw.line(screen, "white", ((j * num2), (i * num1 + (0.5 * num1))),
                                                 ((j * num2 + num2), (i * num1 + (0.5 * num1))), 3)  # pygame.draw.circle(surface, color, (left x, left y), (right x, right y), thickness)
-                
+
+# Draw the player
 def draw_player():
     # 0-RIGHT, 1-LEFT, 2-UP, 3-DOWN
     if direction == 0:
@@ -96,7 +118,8 @@ def draw_player():
     elif direction == 3:
         screen.blit(pygame.transform.rotate(player_images[counter // 5], 270), (player_x, player_y))
 
-def check_collisions(score):
+# Update both the score and dots
+def check_collisions(score, power_up, power_count, eaten_ghosts):
     # Calculate the height and width of each tile
     num1 = (HEIGHT - 50) // 32
     num2 = WIDTH // 30
@@ -110,9 +133,15 @@ def check_collisions(score):
         if level[center_y // num1][center_x // num2] == 2:  # If current tile contains a BIG dot (level value 2)
             level[center_y // num1][center_x // num2] = 0
             score += 50
-    
-    return score
 
+            # When eating the power up dot (BIG dot), start a timer
+            power_up = True
+            power_count = 0                                 # Reset the powerup timer in case you eat one big dot while the previous big dot timer hasn't due
+            eaten_ghosts = [False, False, False, False]     # For tracking which ghost was eaten during the power up
+    
+    return score, power_up, power_count, eaten_ghosts
+
+# Move the player as the key pressed
 def move_player(player_x, player_y):
     # r, l, u, d
     if direction == 0 and turns_allowed[0]: # move right
@@ -126,6 +155,7 @@ def move_player(player_x, player_y):
 
     return player_x, player_y
 
+# Check if the move is performable as well as collision
 def check_position(centerx, centery):
     # Checking if the current position is allowed to move in certain direction
     turns = [False, False, False, False]
@@ -178,7 +208,7 @@ def check_position(centerx, centery):
     return turns
 
 
-# ---------------------------------------------------------------------------------------
+# ------------------------------------ Game Executions ------------------------------------
 
 # Start the game loop
 run = True
@@ -186,6 +216,7 @@ run = True
 # While the game is running, all the following will be continously executed
 while run:
     timer.tick(fps)         # Define the frame rate
+
 
     if counter < 19:
         # cycling the biting animation
@@ -196,15 +227,35 @@ while run:
         counter = 0
         flicker = True
 
+    if power_up and power_counter < 600:
+        power_counter += 1
+    elif power_up and power_counter >= 600:
+        power_counter = 0
+        power_up = False
+        eaten_ghosts = [False, False, False, False]
+
+    if startup_counter < 180:
+        moving = False
+        startup_counter += 1
+    else:
+        moving = True
+
+
     screen.fill('black')    # Create the solid black background for the game
-    draw_board()
+    draw_misc()             # Draw the miscellaneous section (score, lives, power up, etc,.)
+    draw_board()            # Draw the board layout (Walls, pathways)
     draw_player()
+
 
     center_x = player_x + 23
     center_y = player_y + 24
     turns_allowed = check_position(center_x, center_y)      # check if the player hit obstacles
-    player_x, player_y = move_player(player_x, player_y)    # move the player as the arrow keys pressed
-    score = check_collisions(score)                         # check if the player collides with obstacles and update the score
+
+    if moving:
+        player_x, player_y = move_player(player_x, player_y)    # move the player as the arrow keys pressed
+        
+    score, power_up, power_counter, eaten_ghosts = check_collisions(score , power_up, power_counter, eaten_ghosts)                         # check if the player collides with obstacles and update the score
+
 
     # Check for conditions
     for event in pygame.event.get():
