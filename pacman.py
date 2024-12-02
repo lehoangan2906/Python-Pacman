@@ -5,28 +5,31 @@ from board import boards
 # Initialize pygame environment
 pygame.init()
 
+
 # Define the pygame parameters 
+fps = 60
 WIDTH = 900
 HEIGHT = 950
-screen = pygame.display.set_mode([WIDTH, HEIGHT])  # setting pygame display dimensions
-timer = pygame.time.Clock()  # Control the speed at which the game run
-fps = 60
-font = pygame.font.Font("freesansbold.ttf", 20)
-level = boards  # import the lists of level (layout components) - the level is constructed by multiple tiles
-flicker = False # flicker control for the BIG white dots
-
 PI = math.pi
+level = boards                                      # import the lists of level (layout components) - the level is constructed by multiple tiles
+flicker = False                                     # flicker control for the BIG white dots
+timer = pygame.time.Clock()                         # Control the speed at which the game run
+font = pygame.font.Font("freesansbold.ttf", 20)
+screen = pygame.display.set_mode([WIDTH, HEIGHT])   # setting pygame display dimensions
+
 
 # Define the player's parameters
-player_images = []
-for i in range(1, 5):
-    player_images.append(pygame.transform.scale(pygame.image.load(f'assets/player_images/{i}.png'), (45, 45)))  # animating the player biting using multiple images
+score = 0
+counter = 0             # for cycling through images to create the animations
+direction = 0           # Initial direction of the player - right
 player_x = 450
 player_y = 663
-direction = 0  # Initial direction of the player - right
-counter = 0  # for cycling through images to create the animations
 player_speed = 2
+player_images = []
 direction_command = 0
+for i in range(1, 5):
+    player_images.append(pygame.transform.scale(pygame.image.load(f'assets/player_images/{i}.png'), (45, 45)))  # animating the player biting using multiple images
+
 
 # ---------------------------------------------------------------------------------------
 
@@ -93,6 +96,36 @@ def draw_player():
     elif direction == 3:
         screen.blit(pygame.transform.rotate(player_images[counter // 5], 270), (player_x, player_y))
 
+def check_collisions(score):
+    # Calculate the height and width of each tile
+    num1 = (HEIGHT - 50) // 32
+    num2 = WIDTH // 30
+
+    # check if the player's x-coordinate is within the playable area
+    if 0 < player_x < 870:
+        # Determine the player's current tile position using center coordinates
+        if level[center_y // num1][center_x // num2] == 1:  # If current tile contains a SMALL dot (level value 1)
+            level[center_y // num1][center_x // num2] = 0   # Remove the dot by switching the level value to 0 (empty tile)
+            score += 10
+        if level[center_y // num1][center_x // num2] == 2:  # If current tile contains a BIG dot (level value 2)
+            level[center_y // num1][center_x // num2] = 0
+            score += 50
+    
+    return score
+
+def move_player(player_x, player_y):
+    # r, l, u, d
+    if direction == 0 and turns_allowed[0]: # move right
+        player_x += player_speed
+    elif direction == 1 and turns_allowed[1]: # move left
+        player_x -= player_speed
+    if direction == 2 and turns_allowed[2]: # move up
+        player_y -= player_speed
+    elif direction == 3 and turns_allowed[3]: # move down
+        player_y += player_speed
+
+    return player_x, player_y
+
 def check_position(centerx, centery):
     # Checking if the current position is allowed to move in certain direction
     turns = [False, False, False, False]
@@ -144,25 +177,14 @@ def check_position(centerx, centery):
     # Returns whether or not we're allowed to turn
     return turns
 
-def move_player(player_x, player_y):
-    # r, l, u, d
-    if direction == 0 and turns_allowed[0]: # move right
-        player_x += player_speed
-    elif direction == 1 and turns_allowed[1]: # move left
-        player_x -= player_speed
-    if direction == 2 and turns_allowed[2]: # move up
-        player_y -= player_speed
-    elif direction == 3 and turns_allowed[3]: # move down
-        player_y += player_speed
-
-    return player_x, player_y
 
 # ---------------------------------------------------------------------------------------
 
 # Start the game loop
 run = True
+
+# While the game is running, all the following will be continously executed
 while run:
-    # While the game is running, all the following will be continously executed
     timer.tick(fps)         # Define the frame rate
 
     if counter < 19:
@@ -180,12 +202,13 @@ while run:
 
     center_x = player_x + 23
     center_y = player_y + 24
-    turns_allowed = check_position(center_x, center_y)  # check if the player hit obstacles
-    player_x, player_y = move_player(player_x, player_y) # move the player as the arrow keys pressed
+    turns_allowed = check_position(center_x, center_y)      # check if the player hit obstacles
+    player_x, player_y = move_player(player_x, player_y)    # move the player as the arrow keys pressed
+    score = check_collisions(score)                         # check if the player collides with obstacles and update the score
 
     # Check for conditions
     for event in pygame.event.get():
-        if event.type == pygame.QUIT:   # termination condition
+        if event.type == pygame.QUIT:       # termination condition
             run = False
         if event.type == pygame.KEYDOWN:    # detect key presses
             if event.key == pygame.K_RIGHT: # right arrow key
@@ -196,7 +219,7 @@ while run:
                 direction_command = 2
             if event.key == pygame.K_DOWN:
                 direction_command = 3
-        if event.type == pygame.KEYUP:    # detect key releases
+        if event.type == pygame.KEYUP:      # detect key releases
             if event.key == pygame.K_RIGHT and direction_command == 0:
                 direction_command = direction
             if event.key == pygame.K_LEFT and direction_command == 1:
